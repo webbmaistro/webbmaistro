@@ -1,4 +1,4 @@
-- 👋 Hi, I’m @webbmaistro
+- 👋 Hi, I’m Webb
 - 👀 I’m interested in defi, nfts, nature, saving the planet
 - 🌱 I’m currently learning solidity, dapp development, moralis.io, aave
 - 💞️ I’m looking to collaborate on aavegotchi, defi, polygon, 
