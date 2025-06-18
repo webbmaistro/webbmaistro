@@ -1,7 +1,7 @@
 - 👋 Hi, I’m Webb
-- 👀 I’m interested in defi, nfts, nature, saving the planet
-- 🌱 I’m currently learning solidity, dapp development, moralis.io, aave
-- 💞️ I’m looking to collaborate on aavegotchi, defi, polygon, collaborative tools for defi and web 3.0 
+- 👀 I’m interested in defi, crypto, nature, saving the planet, ai
+- 🌱 I’m currently learning solidity, dapp development, moralis.io, aave, n8n, bolt.new, cursor, ai llm model integrating
+- 💞️ I’m looking to collaborate on flowdrop, second mountain, crypto projects
 - 📫 How to reach me webb.hammond93@gmail.com @Webb_Nft on twitter
 
 <!---
