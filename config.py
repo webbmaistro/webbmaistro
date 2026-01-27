@@ -23,6 +23,15 @@ MAX_DELAY_SECONDS = 40
 HEADLESS = True  # Set to False to watch the browser in action (useful for debugging)
 TIMEOUT = 15000  # Timeout for page loads in milliseconds
 
+# LLM-Powered Form Detection (Optional)
+# When enabled, uses Claude AI to intelligently detect form fields if standard selectors fail
+USE_LLM_DETECTION = True  # Set to False to disable LLM fallback
+# To use LLM detection:
+# 1. Install: pip install anthropic
+# 2. Set environment variable: export ANTHROPIC_API_KEY='your-api-key'
+# 3. Get API key from: https://console.anthropic.com/
+# Cost: ~$0.003 per form analyzed (using Claude 3.5 Haiku)
+
 # File paths
 INPUT_CSV = 'restaurants.csv'  # Your input CSV with website_url and restaurant_name columns
 OUTPUT_CSV = 'restaurants_results.csv'  # Output file with results

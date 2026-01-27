@@ -6,7 +6,9 @@ Automatically finds and submits contact forms on restaurant websites.
 
 import asyncio
 import csv
+import json
 import logging
+import os
 import random
 import re
 from datetime import datetime
@@ -16,6 +18,13 @@ from urllib.parse import urljoin, urlparse
 
 import pandas as pd
 from playwright.async_api import Page, TimeoutError, async_playwright
+
+# Optional: Import Anthropic SDK for LLM-powered form detection
+try:
+    from anthropic import Anthropic
+    ANTHROPIC_AVAILABLE = True
+except ImportError:
+    ANTHROPIC_AVAILABLE = False
 
 
 class ContactFormCrawler:
@@ -205,6 +214,88 @@ class ContactFormCrawler:
 
         return None
 
+    async def detect_form_fields_with_llm(self, page: Page) -> Optional[Dict[str, str]]:
+        """
+        Use LLM to intelligently detect form field selectors.
+
+        Args:
+            page: Playwright page object
+
+        Returns:
+            Dictionary mapping field types to selectors, or None if LLM unavailable
+        """
+        if not self.config.get('use_llm_detection', False):
+            return None
+
+        if not ANTHROPIC_AVAILABLE:
+            self.logger.warning("Anthropic SDK not installed. Install with: pip install anthropic")
+            return None
+
+        api_key = os.environ.get('ANTHROPIC_API_KEY')
+        if not api_key:
+            self.logger.warning("ANTHROPIC_API_KEY not set. Skipping LLM detection.")
+            return None
+
+        try:
+            # Get page HTML (limit to forms to reduce token usage)
+            forms_html = await page.locator('form').first.inner_html()
+
+            # Truncate if too long
+            if len(forms_html) > 15000:
+                forms_html = forms_html[:15000] + "\n... (truncated)"
+
+            self.logger.info("Using LLM to detect form fields...")
+
+            client = Anthropic(api_key=api_key)
+
+            response = client.messages.create(
+                model="claude-3-5-haiku-20241022",  # Fast and cheap
+                max_tokens=1024,
+                messages=[{
+                    "role": "user",
+                    "content": f"""Analyze this HTML contact form and identify the CSS selectors for each field.
+
+HTML:
+{forms_html}
+
+Return ONLY a JSON object with these keys (use null if field not found):
+{{
+  "name": "css selector for name field",
+  "email": "css selector for email field",
+  "message": "css selector for message/comment textarea",
+  "phone": "css selector for phone field",
+  "submit": "css selector for submit button"
+}}
+
+Rules:
+- Use the most specific selector (prefer [name="..."] or #id)
+- For name, avoid last name fields
+- Message field is usually a textarea
+- Return ONLY the JSON, no explanation"""
+                }]
+            )
+
+            # Parse response
+            response_text = response.content[0].text.strip()
+
+            # Extract JSON if wrapped in markdown code blocks
+            if "```" in response_text:
+                response_text = re.search(r'```(?:json)?\s*(\{.*\})\s*```', response_text, re.DOTALL)
+                if response_text:
+                    response_text = response_text.group(1)
+
+            selectors = json.loads(response_text)
+
+            # Filter out null values
+            selectors = {k: v for k, v in selectors.items() if v}
+
+            self.logger.info(f"LLM detected fields: {list(selectors.keys())}")
+            return selectors
+
+        except Exception as e:
+            self.logger.error(f"LLM detection failed: {str(e)}")
+            return None
+
     async def fill_and_submit_form(
         self,
         page: Page,
@@ -231,11 +322,25 @@ class ContactFormCrawler:
             await page.goto(contact_url, wait_until='networkidle', timeout=15000)
             await page.wait_for_timeout(2000)
 
-            # Find form fields
+            # Find form fields using selectors
             name_selector = await self.find_form_field(page, 'name')
             email_selector = await self.find_form_field(page, 'email')
             message_selector = await self.find_form_field(page, 'message')
+            submit_selector = None
 
+            # If required fields not found, try LLM detection
+            if (not email_selector or not message_selector) and self.config.get('use_llm_detection', False):
+                self.logger.info("Selector-based detection failed, trying LLM...")
+                llm_selectors = await self.detect_form_fields_with_llm(page)
+
+                if llm_selectors:
+                    # Override with LLM-detected selectors
+                    name_selector = llm_selectors.get('name') or name_selector
+                    email_selector = llm_selectors.get('email') or email_selector
+                    message_selector = llm_selectors.get('message') or message_selector
+                    submit_selector = llm_selectors.get('submit')
+
+            # Check if we have required fields
             if not email_selector or not message_selector:
                 return False, "Could not find required form fields (email and message)"
 
@@ -285,6 +390,10 @@ class ContactFormCrawler:
                 'input[value*="submit" i]',
                 'input[value*="send" i]',
             ]
+
+            # Prioritize LLM-detected submit selector
+            if submit_selector:
+                submit_selectors.insert(0, submit_selector)
 
             submit_clicked = False
             for selector in submit_selectors:
@@ -492,6 +601,7 @@ async def main():
         ),
         'min_delay_seconds': 20,
         'max_delay_seconds': 40,
+        'use_llm_detection': True,  # Enable LLM fallback when selectors fail (requires ANTHROPIC_API_KEY env var)
     }
 
     # File paths

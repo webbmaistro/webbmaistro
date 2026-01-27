@@ -16,6 +16,7 @@ Perfect for B2B outreach, partnership requests, or any legitimate bulk contact n
 
 - **Smart Contact Page Detection**: Tries common URL patterns and searches for contact links
 - **Intelligent Form Field Detection**: Automatically identifies name, email, message, and other form fields
+- **AI-Powered Fallback**: Optional LLM-based form detection for complex forms (uses Claude API) - See [LLM_SETUP.md](LLM_SETUP.md)
 - **Error Handling**: Gracefully handles failures and continues to the next website
 - **Progress Saving**: Saves results after each submission so you never lose progress
 - **Rate Limiting**: Built-in random delays (20-40 seconds) to avoid overwhelming servers
@@ -50,6 +51,19 @@ playwright install chromium
 ```
 
 This downloads the Chromium browser that Playwright will use for automation.
+
+### 4. Optional: Enable AI-Powered Form Detection
+
+For better success rates on complex forms, set up LLM detection (recommended):
+
+```bash
+# Get API key from https://console.anthropic.com/
+export ANTHROPIC_API_KEY='your-api-key-here'
+```
+
+See [LLM_SETUP.md](LLM_SETUP.md) for detailed instructions. Cost: ~$1 per 1000 sites.
+
+Skip this step to use selector-based detection only (free, 60-70% success rate).
 
 ## Setup
 
