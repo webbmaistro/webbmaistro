@@ -23,14 +23,17 @@ MAX_DELAY_SECONDS = 40
 HEADLESS = True  # Set to False to watch the browser in action (useful for debugging)
 TIMEOUT = 15000  # Timeout for page loads in milliseconds
 
-# LLM-Powered Form Detection (Optional)
-# When enabled, uses Claude AI to intelligently detect form fields if standard selectors fail
+# LLM-Powered Form Detection (Optional - 100% Free with Ollama)
+# When enabled, uses a local AI model to intelligently detect form fields if standard selectors fail
 USE_LLM_DETECTION = True  # Set to False to disable LLM fallback
+LLM_MODEL = 'llama3.2'  # Ollama model to use (llama3.2, phi3, mistral, qwen2.5:3b, etc.)
+
 # To use LLM detection:
-# 1. Install: pip install anthropic
-# 2. Set environment variable: export ANTHROPIC_API_KEY='your-api-key'
-# 3. Get API key from: https://console.anthropic.com/
-# Cost: ~$0.003 per form analyzed (using Claude 3.5 Haiku)
+# 1. Install Ollama: curl -fsSL https://ollama.com/install.sh | sh
+# 2. Pull a model: ollama pull llama3.2
+# 3. Start Ollama: ollama serve (runs automatically on macOS/Windows)
+# 4. Install SDK: pip install ollama
+# Cost: $0 - Everything runs locally on your machine
 
 # File paths
 INPUT_CSV = 'restaurants.csv'  # Your input CSV with website_url and restaurant_name columns

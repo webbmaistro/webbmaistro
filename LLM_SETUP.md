@@ -1,13 +1,13 @@
-# LLM-Powered Form Detection Setup
+# LLM-Powered Form Detection Setup (Ollama - Free & Local)
 
-The crawler includes optional AI-powered form field detection using Claude AI. This significantly improves success rates on complex or unusual contact forms.
+The crawler includes optional AI-powered form field detection using **Ollama** - a completely free, open-source, local LLM runner. No API costs, no cloud dependencies, runs 100% on your machine.
 
 ## How It Works
 
 The crawler uses a two-tier approach:
 
 1. **Fast Selector Detection** (default) - Uses predefined CSS selectors to find common form fields
-2. **LLM Fallback** (when enabled) - If selectors fail, Claude AI analyzes the HTML and identifies the correct fields
+2. **LLM Fallback** (when enabled) - If selectors fail, a local AI model analyzes the HTML and identifies the correct fields
 
 The LLM can understand context and handle edge cases like:
 - Unusual field names (e.g., "Your inquiry" instead of "Message")
@@ -15,20 +15,76 @@ The LLM can understand context and handle edge cases like:
 - Dynamic field IDs
 - Multi-step forms
 
-## Setup (5 minutes)
+## Why Ollama?
 
-### 1. Get an Anthropic API Key
+- ✅ **100% Free** - No API costs, ever
+- ✅ **Private** - Everything runs locally on your machine
+- ✅ **Fast** - 2-5 seconds per form on decent hardware
+- ✅ **Open Source** - Uses models like Llama 3.2, Phi-3, Mistral
+- ✅ **No Rate Limits** - Process as many forms as you want
 
-1. Go to https://console.anthropic.com/
-2. Sign up or log in
-3. Navigate to API Keys section
-4. Create a new API key
-5. Copy the key (starts with `sk-ant-api...`)
+## Setup (10 minutes)
 
-### 2. Install the Anthropic SDK
+### 1. Install Ollama
+
+**macOS/Linux:**
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+**Windows:**
+Download from https://ollama.com/download
+
+**Or install via package manager:**
+```bash
+# macOS (Homebrew)
+brew install ollama
+
+# Linux (apt)
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Or download from https://ollama.com/
+```
+
+### 2. Start Ollama Server
 
 ```bash
-pip install anthropic
+ollama serve
+```
+
+This starts the Ollama server in the background. Leave this running.
+
+**Note:** On macOS/Windows, Ollama Desktop app starts automatically and runs in the background.
+
+### 3. Download a Model
+
+Open a new terminal and run:
+
+```bash
+# Recommended: Llama 3.2 (3B) - Fast and accurate
+ollama pull llama3.2
+
+# Alternatives:
+# ollama pull phi3           # Smaller, faster (3.8GB)
+# ollama pull mistral        # Larger, more accurate (4.1GB)
+# ollama pull qwen2.5:3b     # Good balance (2.1GB)
+```
+
+**Model Comparison:**
+
+| Model | Size | Speed | Accuracy | Recommended For |
+|-------|------|-------|----------|-----------------|
+| llama3.2 | 2GB | Fast | High | **Best default choice** |
+| phi3 | 3.8GB | Very Fast | Good | Speed priority |
+| qwen2.5:3b | 2.1GB | Fast | High | Good alternative |
+| mistral | 4.1GB | Medium | Very High | Accuracy priority |
+
+First time pulling a model takes a few minutes (downloads ~2-4GB).
+
+### 4. Install Ollama Python SDK
+
+```bash
+pip install ollama
 ```
 
 Or reinstall all requirements:
@@ -37,74 +93,69 @@ Or reinstall all requirements:
 pip install -r requirements.txt
 ```
 
-### 3. Set Your API Key
-
-**Option A: Environment Variable (Recommended)**
-
-```bash
-export ANTHROPIC_API_KEY='sk-ant-api-your-key-here'
-```
-
-To make it permanent, add to your `~/.bashrc` or `~/.zshrc`:
-
-```bash
-echo 'export ANTHROPIC_API_KEY="sk-ant-api-your-key-here"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-**Option B: .env File**
-
-1. Copy the example file:
-```bash
-cp .env.example .env
-```
-
-2. Edit `.env` and add your key:
-```
-ANTHROPIC_API_KEY=sk-ant-api-your-key-here
-```
-
-### 4. Enable LLM Detection
+### 5. Enable LLM Detection
 
 In `contact_crawler.py` (around line 605), ensure this is set:
 
 ```python
 'use_llm_detection': True,  # Enable LLM fallback
+'llm_model': 'llama3.2',    # Model to use
 ```
 
-Or set to `False` to use only selectors (faster, no API cost).
+### 6. Test It
 
-## Cost
+```bash
+# Test that Ollama is working
+ollama run llama3.2 "Hello!"
 
-LLM detection uses Claude 3.5 Haiku (fast and cheap):
-- **~$0.003 per form analyzed** (~0.3 cents)
-- Only called when standard selectors fail
-- For 1000 restaurants with ~30% failures: **~$1 total**
+# Should respond with a greeting
+```
 
-## Performance
+## Usage
 
-| Mode | Speed | Success Rate | Cost |
-|------|-------|--------------|------|
-| Selectors Only | Fast | 60-70% | $0 |
-| LLM Fallback (Recommended) | Medium | 85-95% | ~$1/1000 sites |
-
-## Verification
-
-Test if it's working:
+Once set up, just run the crawler normally:
 
 ```bash
 python contact_crawler.py
 ```
 
-Check the logs for:
+The LLM will automatically kick in when standard selectors fail.
+
+## Performance
+
+| Mode | Speed | Success Rate | Cost |
+|------|-------|--------------|------|
+| Selectors Only | Instant | 60-70% | $0 |
+| **LLM Fallback (Ollama)** | **2-5s per fallback** | **85-95%** | **$0** |
+
+**Expected runtime:**
+- 1000 restaurants with ~30% LLM fallback = +10-20 minutes total
+- No cost, runs locally
+
+## Verification
+
+Check the logs when running:
+
 ```
-INFO - Using LLM to detect form fields...
+INFO - Selector-based detection failed, trying LLM...
+INFO - Using Ollama LLM to detect form fields...
 INFO - LLM detected fields: ['name', 'email', 'message', 'submit']
+INFO - Filled email field
 ```
 
-If you see warnings like:
-- `ANTHROPIC_API_KEY not set` - Set your API key
-- `Anthropic SDK not installed` - Run `pip install anthropic`
+## Changing Models
+
+To use a different model:
+
+1. Download it:
+```bash
+ollama pull phi3
+```
+
+2. Update `contact_crawler.py`:
+```python
+'llm_model': 'phi3',
+```
 
 ## Disabling LLM Detection
 
@@ -115,41 +166,91 @@ In `contact_crawler.py`:
 'use_llm_detection': False,
 ```
 
-Or simply don't set the API key - it will gracefully fall back to selectors only.
-
 ## Troubleshooting
 
-### Error: "API key not set"
-Set your environment variable or create a `.env` file (see Setup step 3)
+### Error: "Ollama SDK not installed"
+Run: `pip install ollama`
 
-### Error: "Anthropic SDK not installed"
-Run: `pip install anthropic`
+### Error: "Make sure Ollama is running"
+Start Ollama server:
+```bash
+ollama serve
+```
 
-### LLM not being called
-Check that `use_llm_detection: True` in `contact_crawler.py` config
+Or if you have Ollama Desktop, make sure it's running.
 
-### High costs
-The LLM is only called as a fallback. If you're concerned about costs, set `use_llm_detection: False`
+### Error: Model not found
+Pull the model first:
+```bash
+ollama pull llama3.2
+```
+
+### LLM is slow
+Try a smaller/faster model:
+```bash
+ollama pull phi3
+```
+
+Then update config:
+```python
+'llm_model': 'phi3',
+```
+
+### High CPU/RAM usage
+Ollama uses ~4-8GB RAM when running. If this is too much:
+- Use a smaller model (phi3 or qwen2.5:3b)
+- Disable LLM detection: `'use_llm_detection': False`
+
+### Model not loading
+Check Ollama is running:
+```bash
+ollama list
+```
+
+Should show your installed models.
+
+## Hardware Requirements
+
+**Minimum:**
+- 8GB RAM
+- Any modern CPU
+- 5GB free disk space
+
+**Recommended:**
+- 16GB RAM
+- Multi-core CPU
+- 10GB free disk space
+- (GPU optional - Ollama can use GPU if available but CPU is fine)
 
 ## Privacy & Security
 
-- Your API key should be kept secret (never commit to git)
-- Only form HTML is sent to Anthropic's API (not your contact info)
-- No data is stored by Anthropic (zero data retention policy)
-- All communication is encrypted (HTTPS)
+- ✅ Everything runs locally on your machine
+- ✅ No data sent to any API or cloud service
+- ✅ No internet required (after models are downloaded)
+- ✅ 100% private and secure
 
-## Alternative: Ollama (100% Free, Local)
+## Advanced: GPU Acceleration (Optional)
 
-Want to run everything locally with no API costs? We can switch to Ollama:
+If you have an NVIDIA GPU, Ollama will automatically use it for faster inference.
 
+Check if GPU is being used:
 ```bash
-# Install Ollama
-curl -fsSL https://ollama.com/install.sh | sh
-
-# Download a model
-ollama pull llama3.2
-
-# Use Ollama instead of Claude API
+ollama run llama3.2 "test"
 ```
 
-This requires code changes. Let me know if you want this option!
+Watch GPU usage with `nvidia-smi` while it runs.
+
+## Common Models for This Task
+
+Best models for form field detection (in order of recommendation):
+
+1. **llama3.2** (2GB) - Best balance of speed and accuracy
+2. **phi3** (3.8GB) - Faster, still very accurate
+3. **qwen2.5:3b** (2.1GB) - Small and efficient
+4. **mistral** (4.1GB) - Most accurate, slightly slower
+
+## Need Help?
+
+- Ollama docs: https://ollama.com/
+- Ollama GitHub: https://github.com/ollama/ollama
+- Project issues: https://github.com/webbmaistro/contactUsCrawler/issues

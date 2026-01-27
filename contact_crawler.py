@@ -19,12 +19,12 @@ from urllib.parse import urljoin, urlparse
 import pandas as pd
 from playwright.async_api import Page, TimeoutError, async_playwright
 
-# Optional: Import Anthropic SDK for LLM-powered form detection
+# Optional: Import Ollama for LLM-powered form detection
 try:
-    from anthropic import Anthropic
-    ANTHROPIC_AVAILABLE = True
+    import ollama
+    OLLAMA_AVAILABLE = True
 except ImportError:
-    ANTHROPIC_AVAILABLE = False
+    OLLAMA_AVAILABLE = False
 
 
 class ContactFormCrawler:
@@ -217,6 +217,7 @@ class ContactFormCrawler:
     async def detect_form_fields_with_llm(self, page: Page) -> Optional[Dict[str, str]]:
         """
         Use LLM to intelligently detect form field selectors.
+        Uses Ollama (local, free, open-source LLM).
 
         Args:
             page: Playwright page object
@@ -227,33 +228,24 @@ class ContactFormCrawler:
         if not self.config.get('use_llm_detection', False):
             return None
 
-        if not ANTHROPIC_AVAILABLE:
-            self.logger.warning("Anthropic SDK not installed. Install with: pip install anthropic")
-            return None
-
-        api_key = os.environ.get('ANTHROPIC_API_KEY')
-        if not api_key:
-            self.logger.warning("ANTHROPIC_API_KEY not set. Skipping LLM detection.")
+        if not OLLAMA_AVAILABLE:
+            self.logger.warning("Ollama SDK not installed. Install with: pip install ollama")
             return None
 
         try:
-            # Get page HTML (limit to forms to reduce token usage)
+            # Get page HTML (limit to forms to reduce context size)
             forms_html = await page.locator('form').first.inner_html()
 
-            # Truncate if too long
-            if len(forms_html) > 15000:
-                forms_html = forms_html[:15000] + "\n... (truncated)"
+            # Truncate if too long (Ollama can handle large context but let's be reasonable)
+            if len(forms_html) > 8000:
+                forms_html = forms_html[:8000] + "\n... (truncated)"
 
-            self.logger.info("Using LLM to detect form fields...")
+            self.logger.info("Using Ollama LLM to detect form fields...")
 
-            client = Anthropic(api_key=api_key)
+            # Get model name from config (default to llama3.2)
+            model = self.config.get('llm_model', 'llama3.2')
 
-            response = client.messages.create(
-                model="claude-3-5-haiku-20241022",  # Fast and cheap
-                max_tokens=1024,
-                messages=[{
-                    "role": "user",
-                    "content": f"""Analyze this HTML contact form and identify the CSS selectors for each field.
+            prompt = f"""Analyze this HTML contact form and identify the CSS selectors for each field.
 
 HTML:
 {forms_html}
@@ -272,17 +264,32 @@ Rules:
 - For name, avoid last name fields
 - Message field is usually a textarea
 - Return ONLY the JSON, no explanation"""
-                }]
+
+            # Call Ollama (synchronous, but fast enough for our use case)
+            response = ollama.chat(
+                model=model,
+                messages=[{
+                    'role': 'user',
+                    'content': prompt
+                }],
+                options={
+                    'temperature': 0,  # Deterministic output
+                }
             )
 
             # Parse response
-            response_text = response.content[0].text.strip()
+            response_text = response['message']['content'].strip()
 
             # Extract JSON if wrapped in markdown code blocks
             if "```" in response_text:
-                response_text = re.search(r'```(?:json)?\s*(\{.*\})\s*```', response_text, re.DOTALL)
-                if response_text:
-                    response_text = response_text.group(1)
+                json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', response_text, re.DOTALL)
+                if json_match:
+                    response_text = json_match.group(1)
+                else:
+                    # Try to find JSON without code blocks
+                    json_match = re.search(r'\{.*?\}', response_text, re.DOTALL)
+                    if json_match:
+                        response_text = json_match.group(0)
 
             selectors = json.loads(response_text)
 
@@ -292,6 +299,10 @@ Rules:
             self.logger.info(f"LLM detected fields: {list(selectors.keys())}")
             return selectors
 
+        except ollama.ResponseError as e:
+            self.logger.error(f"Ollama error: {str(e)}")
+            self.logger.error(f"Make sure Ollama is running (run 'ollama serve') and model '{self.config.get('llm_model', 'llama3.2')}' is installed")
+            return None
         except Exception as e:
             self.logger.error(f"LLM detection failed: {str(e)}")
             return None
@@ -601,7 +612,8 @@ async def main():
         ),
         'min_delay_seconds': 20,
         'max_delay_seconds': 40,
-        'use_llm_detection': True,  # Enable LLM fallback when selectors fail (requires ANTHROPIC_API_KEY env var)
+        'use_llm_detection': True,  # Enable LLM fallback when selectors fail (requires Ollama)
+        'llm_model': 'llama3.2',  # Ollama model to use (llama3.2, phi3, mistral, etc.)
     }
 
     # File paths
