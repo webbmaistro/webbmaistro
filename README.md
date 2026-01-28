@@ -2,7 +2,7 @@
 - 👀 I’m interested in defi, crypto, nature, saving the planet, ai
 - 🌱 I’m currently learning solidity, dapp development, moralis.io, aave, n8n, bolt.new, cursor, ai llm model integrating
 - 💞️ I’m looking to collaborate on flowdrop, second mountain, crypto projects
-- 📫 How to reach me webb.hammond93@gmail.com @Webb_Nft on twitter
+- 📫 How to reach me webb.hammond93@gmail.com @webb_flowdrop on twitter
 
 <!---
 webbmaistro/webbmaistro is a ✨ special ✨ repository because its `README.md` (this file) appears on your GitHub profile.
